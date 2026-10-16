@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.room.*
 import dagger.Module
@@ -81,12 +82,23 @@ interface RecordsDao {
             Expense::class,
             Workout::class,
         ],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
 abstract class LeanosDatabase : RoomDatabase() {
     abstract fun records(): RecordsDao
 }
+
+val MIGRATION_1_2 =
+    object : androidx.room.migration.Migration(1, 2) {
+        override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE meals ADD COLUMN photo TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE meals ADD COLUMN servings REAL NOT NULL DEFAULT 1")
+            db.execSQL("ALTER TABLE workouts ADD COLUMN sets INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE workouts ADD COLUMN reps INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE workouts ADD COLUMN loadKg REAL DEFAULT NULL")
+        }
+    }
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -94,7 +106,9 @@ object StorageModule {
     @Provides
     @Singleton
     fun db(app: Application): LeanosDatabase =
-        Room.databaseBuilder(app, LeanosDatabase::class.java, "leanos.db").build()
+        Room.databaseBuilder(app, LeanosDatabase::class.java, "leanos.db")
+            .addMigrations(MIGRATION_1_2)
+            .build()
 
     @Provides fun dao(db: LeanosDatabase) = db.records()
 }
@@ -233,6 +247,20 @@ private val Context.preferences by preferencesDataStore("leanos_preferences")
 @Singleton
 class Preferences @Inject constructor(app: Application) {
     private val store = app.preferences
+    private val favoritesKey = stringSetPreferencesKey("favorite_meal_ids")
+    val favorites = store.data.map { it[favoritesKey] ?: emptySet() }
+
+    suspend fun favorite(id: String) {
+        store.edit { prefs ->
+            val ids = prefs[favoritesKey] ?: emptySet()
+            prefs[favoritesKey] = if (id in ids) ids - id else ids + id
+        }
+    }
+
+    suspend fun restoreFavorites(ids: Set<String>) {
+        store.edit { it[favoritesKey] = ids }
+    }
+
     private val themeKey = stringPreferencesKey("theme")
     private val endpointKey = stringPreferencesKey("scanner_endpoint")
     val theme = store.data.map { it[themeKey] ?: "Dark" }

@@ -49,10 +49,12 @@ class AppFlowTest {
         compose.onNodeWithText("+ Add meal").performScrollTo().performClick()
         awaitText("Food name")
         compose.onNodeWithText("Food name").performTextInput("Nasi ayam")
-        compose.onNodeWithText("Calories · kcal (optional)").assertDoesNotExist()
+        compose.onNodeWithText("Gallery").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Camera").assertIsDisplayed()
+        compose.onNodeWithText("Calories per serving · kcal (optional)").assertDoesNotExist()
         compose.onNodeWithText("+ Add nutrition (optional)").performScrollTo().performClick()
         compose
-            .onNodeWithText("Calories · kcal (optional)")
+            .onNodeWithText("Calories per serving · kcal (optional)")
             .performScrollTo()
             .performTextInput("250")
         compose.onNodeWithText("Save record").performScrollTo().performClick()
@@ -72,6 +74,34 @@ class AppFlowTest {
         compose.onNodeWithText("Nasi ayam", substring = false).performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Track").performClick()
         awaitText("Your daily rhythm")
+        compose.waitUntil(10000) {
+            compose.onAllNodesWithText("Saved").fetchSemanticsNodes().isEmpty()
+        }
+        compose.onNodeWithText("Activity").performScrollTo().performClick()
+        awaitText("Activity session")
+        compose.onNodeWithText("Activity type").performScrollTo().performClick()
+        compose.onNodeWithText("Strength").performClick()
+        compose
+            .onNodeWithContentDescription("Increase Duration · minutes")
+            .performScrollTo()
+            .performClick()
+        compose
+            .onNodeWithContentDescription("Increase Sets (optional)")
+            .performScrollTo()
+            .performClick()
+        compose
+            .onNodeWithContentDescription("Increase Reps per set (optional)")
+            .performScrollTo()
+            .performClick()
+        compose.onNodeWithText("Save record").performScrollTo().performClick()
+        compose.waitUntil(10000) {
+            compose.onAllNodesWithText("Activity session").fetchSemanticsNodes().isEmpty()
+        }
+        awaitText("Saved")
+        compose.waitUntil(10000) {
+            compose.onAllNodesWithText("Saved").fetchSemanticsNodes().isEmpty()
+        }
+        compose.onNodeWithText("Beginner strength · 20 min").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("+ 250 ml").performScrollTo().performClick()
         compose
             .onNodeWithText("Save day · partial entries welcome")

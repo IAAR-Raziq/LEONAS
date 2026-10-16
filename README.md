@@ -10,6 +10,17 @@ Open [LEANOS-debug.apk](downloads/LEANOS-debug.apk) on GitHub and use **Download
 
 APK integrity: [SHA256SUMS](downloads/SHA256SUMS).
 
+## Version 1.3 · less typing, more tracking
+
+- **Form controls:** dropdowns for meal category, activity type, exercise, sex, activity level, sleep habits, sugary-drink habits and kitchen access; multi-select exercise preferences; native calendar/time pickers; plus/minus quantity controls. Names, notes, costs and precise numbers remain editable where typing makes sense.
+- **+ Activity:** direct entry from Home and Track. Choose walking, strength, cardio or a custom exercise; adjust duration; optionally record sets, reps and load. Session edits update the daily totals without double-counting.
+- **Meal photos:** every manual, repeat or AI meal draft supports Gallery/Camera, preview, replace and remove. Saving copies a downsampled, orientation-corrected JPEG into app-private storage; gallery permissions are not required after saving. Photos do not require AI or internet, and images are not sent to the scanner unless the user explicitly analyzes them. List thumbnails decode only while visible to limit memory use.
+- **Diary and nutrition:** daily calories/macros/fibre, optional user-entered calorie/carbohydrate/fat targets, existing protein goal, serving quantity with scaled nutrition, meal-category filters, favourites and Log again drafts. Meal cost is the total purchase cost and is never multiplied by servings. Missing nutrition remains unknown. Exercise calories are not guessed or added to your food allowance.
+- **Portable backups:** ZIP exports contain `records.json`, favourites and meal photos. Import validates everything before replacing database records and remaps image names to avoid overwriting existing photos. Legacy version-1 JSON backups still import. Metadata is limited to 10 MB, individual photos to 1 MB, and total photos to 100 MB / 5,000 files. No automatic cloud backup is enabled.
+- **Upgrade:** Room schema 2 includes an explicit, tested migration from schema 1. Existing meals, habits, weights, profile and workouts are retained. Install the APK over the current app; do not uninstall first.
+
+This build provides the core local diary/tracking workflow inspired by nutrition apps. It is not a complete MyFitnessPal clone: there is no licensed branded-food catalogue, barcode database, social/community system, subscription or automatic Health Connect step import. The existing optional Gemini backend remains separate and needs your own deployment/key.
+
 ## Version 1.2 · a more cohesive daily experience
 
 [View the Home redesign](docs/images/home-dark.png) (native Robolectric rendering with a test profile).
@@ -63,7 +74,7 @@ These proxy/trust-store paths are specific to this cloud machine; normal Android
 4. **Meals** supports add/edit/delete, date/time, category, RM cost (including free food), ingredients/portion notes and optional nutrition. Calories are never required. Weekly summaries explicitly report incomplete nutrition coverage.
 5. **Progress** has editable/deletable weight/waist measurements, selectable 7/30/90-day or all-time charts, tap-to-inspect values, monthly summaries and history. One weight and one habit entry per date; saving the same date updates it. Changing a weigh-in date requires deleting/recreating to avoid silently overwriting another measurement. Editing current weight in Profile records a weigh-in for today when changed.
 6. **Budget** opens from Home. Meal prices feed it directly; no duplicated expense row is generated. Other food expenses have independent edit/delete controls. Do not log the same purchase twice. Budget alerts encourage adjusting spending/budget, never missing meals.
-7. **Profile** edits all personal details/targets and dark/light/system theme. JSON export/import uses Android's system document picker; import requires confirmation and replaces records only after complete validation inside a database transaction. Delete all data removes records, preferences, scanner credentials and cached photos. No demo records are seeded, so there is no demo reset control.
+7. **Profile** edits all personal details/targets and dark/light/system theme. ZIP export/import uses Android's system document picker; import requires confirmation and replaces records only after complete validation inside a database transaction. Delete all data removes records, preferences, scanner credentials and cached photos. No demo records are seeded, so there is no demo reset control.
 
 ### Calculations and data choices
 
@@ -72,8 +83,8 @@ These proxy/trust-store paths are specific to this cloud machine; normal Android
 - Seven habits contribute equally: step goal, walking/exercise or rest, water goal, sleep goal, meal logged, known protein goal, no sugary drinks. A full habit streak counts consecutive complete days and permits today to remain unfinished. The 30-day challenge starts at onboarding. Past dates are editable.
 - Nutrition totals include only values supplied by the user or confirmed AI estimates; missing values are not evidence of zero nutrition. The UI reports calorie coverage. For AI meals, the saved calorie value initially uses the midpoint of the displayed range, with range/uncertainty retained in notes; the user can change everything.
 - Manual steps are the supported activity source. Health Connect is not enabled; no activity permissions are requested.
-- Room schema version 1 is exported in `app/schemas/`. There are no pre-v1 installations to migrate. Destructive fallback is **not** enabled. Future schema updates must increment the version, supply explicit Room migrations and add migration tests; never erase records to make an update pass.
-- Room lives in Android app-private storage with OS file encryption. It is not an independently encrypted SQLCipher database. Automatic Android backups are disabled; explicit user exports are readable JSON containing sensitive personal data. Preferences contain theme/backend URL only. Scanner access credentials are AES-GCM encrypted with an Android Keystore key.
+- Room schema version 2 is exported in `app/schemas/`. `MIGRATION_1_2` adds meal photos, serving quantity, and strength details without erasing old tables. Destructive fallback is **not** enabled. Future schema updates must increment the version, supply explicit Room migrations and add migration tests; never erase records to make an update pass.
+- Room lives in Android app-private storage with OS file encryption. It is not an independently encrypted SQLCipher database. Automatic Android backups are disabled; explicit user exports are ZIP files containing readable JSON and photos with sensitive personal data. Preferences contain theme/backend URL only. Scanner access credentials are AES-GCM encrypted with an Android Keystore key.
 
 ## Optional Gemini food scanner
 

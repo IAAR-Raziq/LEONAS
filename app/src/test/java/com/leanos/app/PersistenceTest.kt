@@ -24,7 +24,10 @@ class PersistenceTest {
     private lateinit var repository: Repository
 
     private fun open() {
-        db = Room.databaseBuilder(context, LeanosDatabase::class.java, "test-records.db").build()
+        db =
+            Room.databaseBuilder(context, LeanosDatabase::class.java, "test-records.db")
+                .addMigrations(MIGRATION_1_2)
+                .build()
         repository = Repository(db, db.records())
     }
 
@@ -101,5 +104,78 @@ class PersistenceTest {
         assertNull(repository.records.first().profile)
         repository.restore(json.decodeFromString<Backup>(encoded))
         assertEquals(original, repository.records.first().backup())
+    }
+
+    @Test
+    fun migrationPreservesVersionOneMealsActivitiesAndProfile() = runBlocking {
+        val name = "migration-test.db"
+        context.deleteDatabase(name)
+        val path = context.getDatabasePath(name).apply { parentFile?.mkdirs() }
+        val legacy = android.database.sqlite.SQLiteDatabase.openOrCreateDatabase(path, null)
+        val schema =
+            org.json
+                .JSONObject(java.io.File("schemas/com.leanos.app.LeanosDatabase/1.json").readText())
+                .getJSONObject("database")
+                .getJSONArray("entities")
+        for (i in 0 until schema.length()) {
+            val entity = schema.getJSONObject(i)
+            legacy.execSQL(
+                entity
+                    .getString("createSql")
+                    .replace("$" + "{TABLE_NAME}", entity.getString("tableName"))
+            )
+        }
+        val date = today()
+        legacy.execSQL(
+            "INSERT INTO profile (id,payload) VALUES (?,?)",
+            arrayOf(1, json.encodeToString(Profile(name = "Retained"))),
+        )
+        legacy.execSQL(
+            "INSERT INTO meals (id,date,name,category,time,cost,calories,protein,carbs,fat,fibre,notes) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+            arrayOf(
+                "m",
+                date,
+                "Nasi ayam",
+                "Brunch",
+                "10:00",
+                7.0,
+                450.0,
+                30.0,
+                null,
+                null,
+                null,
+                "Keep this",
+            ),
+        )
+        legacy.execSQL(
+            "INSERT INTO workouts (id,date,name,kind,minutes) VALUES (?,?,?,?,?)",
+            arrayOf("w", date, "Walk", "Walking", 15),
+        )
+        legacy.execSQL(
+            "INSERT INTO weights (date,kg,waist) VALUES (?,?,?)",
+            arrayOf(date, 105.0, 100.0),
+        )
+        legacy.version = 1
+        legacy.close()
+        val migrated =
+            Room.databaseBuilder(context, LeanosDatabase::class.java, name)
+                .addMigrations(MIGRATION_1_2)
+                .build()
+        try {
+            val r = Repository(migrated, migrated.records()).records.first()
+            assertEquals("Retained", r.profile?.name)
+            assertEquals("Keep this", r.meals.single().notes)
+            assertEquals("", r.meals.single().photo)
+            assertEquals(0, r.workouts.single().sets)
+            assertEquals(15, r.workouts.single().minutes)
+            assertEquals(105.0, r.currentWeight(), 0.0)
+            migrated
+                .records()
+                .putMeal(r.meals.single().copy(photo = "00000000-0000-0000-0000-000000000000.jpg"))
+            assertTrue(migrated.records().meals().first().single().photo.endsWith(".jpg"))
+        } finally {
+            migrated.close()
+            context.deleteDatabase(name)
+        }
     }
 }

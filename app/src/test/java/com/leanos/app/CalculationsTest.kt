@@ -137,4 +137,17 @@ class CalculationsTest {
         val meals = habits.map { Meal(date = it.date, name = "Protein meal", protein = 100.0) }
         assertEquals(2, Calculations.streak(habits, profile, meals, day))
     }
+
+    @Test
+    fun servingChangesScaleNutritionWithoutChangingCostOrUnknownValues() {
+        val meal = Meal(name = "Rice", cost = 6.0, calories = 250.0, protein = 5.0)
+        val two = meal.withServings(2.0)
+        two.validate()
+        assertEquals(500.0, two.calories!!, 0.0)
+        assertEquals(10.0, two.protein!!, 0.0)
+        assertEquals(6.0, two.cost, 0.0)
+        assertNull(two.fat)
+        assertEquals(250.0, two.withServings(1.0).calories!!, 0.0)
+        assertThrows(IllegalArgumentException::class.java) { meal.withServings(0.0) }
+    }
 }

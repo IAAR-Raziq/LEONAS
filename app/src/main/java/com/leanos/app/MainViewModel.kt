@@ -8,8 +8,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
-import kotlinx.serialization.decodeFromString
-import kotlinx.serialization.encodeToString
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
@@ -21,6 +19,7 @@ constructor(
     private val scanner: FoodScanner,
     val vault: TokenVault,
     private val app: Application,
+    val photos: PhotoStore,
 ) : ViewModel() {
     val loadError = MutableStateFlow<String?>(null)
     private val reload = MutableStateFlow(0)
@@ -41,6 +40,12 @@ constructor(
             }
             .map<Records, Records?> { it }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+    val favorites =
+        preferences.favorites.stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5000),
+            emptySet(),
+        )
     val theme =
         preferences.theme.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "Dark")
     val endpoint =
@@ -93,40 +98,60 @@ constructor(
         preferences.reset()
         vault.save("")
         analysis.value = null
+        photos.erase()
         withContext(Dispatchers.IO) {
             app.cacheDir.deleteRecursively()
             app.cacheDir.mkdirs()
         }
     }
 
+    suspend fun saveMeal(meal: Meal, selection: String) {
+        // Validate the form before copying a photo or changing any records.
+        meal.copy(photo = "").validate()
+        val photo = photos.save(selection)
+        try {
+            repository.meal(meal.copy(photo = photo))
+        } finally {
+            photos.cleanup(repository.records.first().meals.map { it.photo }.toSet())
+        }
+    }
+
+    suspend fun deleteMeal(meal: Meal) {
+        repository.delete(meal)
+        photos.cleanup(repository.records.first().meals.map { it.photo }.toSet())
+    }
+
     fun export(uri: Uri) =
-        run("Backup exported. Keep this personal health data private.") {
-            val backup = repository.records.first().backup()
+        run("Backup exported, including meal photos. Keep it private.") {
+            val current = repository.records.first()
+            val backup =
+                current
+                    .backup()
+                    .copy(
+                        favoriteMealIds =
+                            preferences.favorites
+                                .first()
+                                .intersect(current.meals.map { it.id }.toSet())
+                    )
             withContext(Dispatchers.IO) {
                 app.contentResolver.openOutputStream(uri, "wt")?.use {
-                    it.write(json.encodeToString(backup).toByteArray())
-                } ?: error("Cannot write to this document.")
+                    photos.writeBackup(it, backup)
+                } ?: error("Cannot write backup.")
             }
         }
 
     fun import(uri: Uri) =
-        run("Backup restored") {
-            val text =
+        run("Backup restored, including available meal photos") {
+            val backup =
                 withContext(Dispatchers.IO) {
-                    app.contentResolver.openInputStream(uri)?.use {
-                        val output = java.io.ByteArrayOutputStream()
-                        val buffer = ByteArray(8192)
-                        var count = it.read(buffer)
-                        while (count != -1) {
-                            require(output.size() + count <= 10 * 1024 * 1024) {
-                                "Backup exceeds 10 MB."
-                            }
-                            output.write(buffer, 0, count)
-                            count = it.read(buffer)
-                        }
-                        output.toString("UTF-8")
-                    } ?: error("Cannot read backup.")
+                    app.contentResolver.openInputStream(uri)?.use { photos.readBackup(it) }
+                        ?: error("Cannot read backup.")
                 }
-            repository.restore(json.decodeFromString<Backup>(text))
+            try {
+                repository.restore(backup)
+                preferences.restoreFavorites(backup.favoriteMealIds)
+            } finally {
+                photos.cleanup(repository.records.first().meals.map { it.photo }.toSet())
+            }
         }
 }

@@ -14,6 +14,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
@@ -41,6 +42,7 @@ fun HomeScreen(data: Records, vm: MainViewModel, navigate: (String) -> Unit) {
     val budget = Calculations.budget(p, data.meals, data.expenses)
     var addWeight by remember { mutableStateOf(false) }
     var addMeal by remember { mutableStateOf(false) }
+    var addActivity by remember { mutableStateOf(false) }
     val current = data.currentWeight()
     val progress = Calculations.progress(p.startingWeight, current, p.goalWeight)
     val completion = h?.let { Calculations.completion(it, p, meals) } ?: 0f
@@ -109,6 +111,11 @@ fun HomeScreen(data: Records, vm: MainViewModel, navigate: (String) -> Unit) {
                 Text("+ Add meal")
             }
         }
+        FilledTonalButton(onClick = { addActivity = true }, modifier = Modifier.fillMaxWidth()) {
+            Icon(Icons.Outlined.Add, null)
+            Spacer(Modifier.width(8.dp))
+            Text("Activity")
+        }
         SectionTitle("Today, at a glance", "Small habits add up. Log what you can.")
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             StatTile(
@@ -171,6 +178,7 @@ fun HomeScreen(data: Records, vm: MainViewModel, navigate: (String) -> Unit) {
             SectionTitle("Today's plate", "Nutrition is optional. Your meals still count.")
             if (meals.isEmpty()) Empty("Nothing logged yet. Add your first meal when you're ready.")
             meals.forEach {
+                MealPhoto(it.photo)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Column(Modifier.weight(1f)) {
                         Text(it.name, style = MaterialTheme.typography.titleMedium)
@@ -232,6 +240,7 @@ fun HomeScreen(data: Records, vm: MainViewModel, navigate: (String) -> Unit) {
     }
     if (addWeight) WeightEditor(vm, null) { addWeight = false }
     if (addMeal) MealEditor(vm, null) { addMeal = false }
+    if (addActivity) WorkoutEditor(vm, null) { addActivity = false }
 }
 
 @Composable
@@ -281,24 +290,20 @@ fun TrackScreen(data: Records, vm: MainViewModel) {
                 Icon(Icons.Outlined.ChevronRight, "Next day")
             }
         }
-        OutlinedTextField(
-            date,
-            { date = it },
-            label = { Text("Date · YYYY-MM-DD") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-        )
-        OutlinedButton(
+        ChooseDay(selected) {
+            selected = it
+            date = it
+        }
+        Button(
             onClick = {
-                vm.run(null) {
-                    require(!LocalDate.parse(date).isAfter(LocalDate.now())) {
-                        "Choose today or an earlier date."
-                    }
-                    selected = date
-                }
-            }
+                session = null
+                sessionEditor = true
+            },
+            modifier = Modifier.fillMaxWidth(),
         ) {
-            Text("Load day")
+            Icon(Icons.Outlined.Add, null)
+            Spacer(Modifier.width(8.dp))
+            Text("Activity")
         }
         key(selected, data.habits.find { it.date == selected }) {
             val h = data.habits.find { it.date == selected } ?: Habit(date = selected)
@@ -432,15 +437,6 @@ fun TrackScreen(data: Records, vm: MainViewModel) {
                 "${days.size} days recorded · ${Calculations.streak(data.habits,p,data.meals)}-day complete habit streak"
             )
         }
-        Button(
-            onClick = {
-                session = null
-                sessionEditor = true
-            },
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text("+ Walking / workout session")
-        }
         data.workouts
             .filter { it.date == selected }
             .forEach { w ->
@@ -450,6 +446,10 @@ fun TrackScreen(data: Records, vm: MainViewModel) {
                         style = MaterialTheme.typography.titleMedium,
                     )
                     Text(w.kind)
+                    if (w.kind == "Strength" && (w.sets > 0 || w.reps > 0))
+                        Text(
+                            "${w.sets} sets × ${w.reps} reps${w.loadKg?.let { " · ${it.fmt()} kg" } ?: ""}"
+                        )
                     Row {
                         TextButton(
                             onClick = {
@@ -509,9 +509,16 @@ fun MealsScreen(data: Records, vm: MainViewModel) {
     val n = Calculations.nutrition(week)
     var search by rememberSaveable { mutableStateOf("") }
     var period by rememberSaveable { mutableStateOf("All") }
+    val favorites by vm.favorites.collectAsStateWithLifecycle()
+    var onlyFavorites by rememberSaveable { mutableStateOf(false) }
+    var category by rememberSaveable { mutableStateOf("All meals") }
+    val profile = data.profile!!
+    var diaryDay by rememberSaveable { mutableStateOf(today()) }
     val visible =
         data.meals.filter { m ->
             (search.isBlank() || m.name.contains(search, true) || m.notes.contains(search, true)) &&
+                (category == "All meals" || m.category == category) &&
+                (!onlyFavorites || m.id in favorites) &&
                 when (period) {
                     "Today" -> m.date == today()
                     "7 days" -> m.date >= LocalDate.now().minusDays(6).toString()
@@ -528,6 +535,35 @@ fun MealsScreen(data: Records, vm: MainViewModel) {
             modifier = Modifier.fillMaxWidth(),
         ) {
             Text("+ Log meal")
+        }
+        HeroPanel {
+            SectionTitle("Daily food diary", if (diaryDay == today()) "Today" else diaryDay)
+            ChooseDay(diaryDay) { diaryDay = it }
+            val logged = data.meals.filter { it.date == diaryDay }
+            val totals = Calculations.nutrition(logged)
+            Text("${totals[0].fmt(0)} kcal logged", style = MaterialTheme.typography.headlineMedium)
+            profile.calorieTarget?.let { target ->
+                Text("${target.fmt(0)} kcal target · ${(target-totals[0]).fmt(0)} kcal remaining")
+                LinearProgressIndicator(
+                    progress = { (totals[0] / target).toFloat().coerceIn(0f, 1f) },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+                ?: Text(
+                    "No calorie target set. Add one in Profile if you want.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            Text("Protein ${totals[1].fmt(0)} g / ${profile.proteinTarget.fmt(0)} g")
+            Text(
+                "Carbs ${totals[2].fmt(0)} g${profile.carbTarget?.let {" / ${it.fmt(0)} g"} ?: ""} · Fat ${totals[3].fmt(0)} g${profile.fatTarget?.let {" / ${it.fmt(0)} g"} ?: ""}"
+            )
+            Text("Fibre ${totals[4].fmt(0)} g")
+            Text(
+                "${logged.count {it.calories!=null}} of ${logged.size} meals include calories. Remaining values are estimates and may be incomplete; activity calories are not added to your food allowance.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
         Panel {
             Label("LAST 7 DAYS · KNOWN NUTRITION")
@@ -561,6 +597,21 @@ fun MealsScreen(data: Records, vm: MainViewModel) {
                 FilterChip(period == p, { period = p }, label = { Text(p) })
             }
         }
+        Row(
+            Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            listOf("All meals", "Breakfast", "Brunch", "Lunch", "Dinner", "Snack", "Drink")
+                .forEach { option ->
+                    FilterChip(category == option, { category = option }, label = { Text(option) })
+                }
+        }
+        FilterChip(
+            onlyFavorites,
+            { onlyFavorites = !onlyFavorites },
+            label = { Text("Favourites") },
+            leadingIcon = { Icon(Icons.Outlined.Star, null, Modifier.size(18.dp)) },
+        )
         if (visible.isEmpty())
             Empty(
                 if (data.meals.isEmpty())
@@ -570,7 +621,28 @@ fun MealsScreen(data: Records, vm: MainViewModel) {
         visible.forEach { m ->
             Panel {
                 Label("${m.date} · ${m.time} · ${m.category}")
-                Text(m.name, style = MaterialTheme.typography.titleLarge)
+                MealPhoto(m.photo)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        m.name,
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.weight(1f),
+                    )
+                    IconButton(onClick = { vm.run(null) { vm.preferences.favorite(m.id) } }) {
+                        Icon(
+                            if (m.id in favorites) Icons.Outlined.Star
+                            else Icons.Outlined.StarBorder,
+                            if (m.id in favorites) "Remove favourite ${m.name}"
+                            else "Favourite ${m.name}",
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                }
+                Text(
+                    "${m.servings.fmt()} serving${if(m.servings==1.0) "" else "s"}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 Text(
                     "${money(m.cost)} · ${m.calories?.let { "${it.fmt(0)} kcal estimated" } ?: "Nutrition not entered"}"
                 )
@@ -589,6 +661,23 @@ fun MealsScreen(data: Records, vm: MainViewModel) {
                     ) {
                         Text("Edit")
                     }
+                    TextButton(
+                        onClick = {
+                            meal =
+                                m.copy(
+                                    id = java.util.UUID.randomUUID().toString(),
+                                    date = today(),
+                                    time =
+                                        java.time.LocalTime.now()
+                                            .withSecond(0)
+                                            .withNano(0)
+                                            .toString(),
+                                )
+                            editor = true
+                        }
+                    ) {
+                        Text("Log again")
+                    }
                     TextButton(onClick = { delete = m }) { Text("Delete") }
                 }
             }
@@ -601,7 +690,7 @@ fun MealsScreen(data: Records, vm: MainViewModel) {
             "Its food cost will also be removed from your budget.",
             { delete = null },
         ) {
-            vm.run(done = { delete = null }) { vm.repository.delete(m) }
+            vm.run(done = { delete = null }) { vm.deleteMeal(m) }
         }
     }
 }

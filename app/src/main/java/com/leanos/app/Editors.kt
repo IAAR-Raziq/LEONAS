@@ -1,6 +1,5 @@
 package com.leanos.app
 
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
@@ -52,9 +51,37 @@ fun Map<String, String>.optional(key: String) = if (s(key).isBlank()) null else 
 
 @Composable
 fun Input(field: Field, values: MutableMap<String, String>) {
+    if (field.key == "photo") {
+        MealPhotoPicker(values[field.key].orEmpty()) { values[field.key] = it }
+        return
+    }
+    val options = choices(field, values)
+    if (options.isNotEmpty()) {
+        ChoiceControl(field, values, options)
+        return
+    }
+    if (field.key == "exercise" && !field.numeric) {
+        ExercisePreferences(field, values)
+        return
+    }
     val context = LocalContext.current
     val focus = LocalFocusManager.current
     val isDate = field.key == "date"
+    val isTime = field.key == "time"
+    fun pickTime() {
+        val t =
+            runCatching { java.time.LocalTime.parse(values[field.key]) }
+                .getOrDefault(java.time.LocalTime.now())
+        android.app
+            .TimePickerDialog(
+                context,
+                { _, h, m -> values[field.key] = java.time.LocalTime.of(h, m).toString() },
+                t.hour,
+                t.minute,
+                true,
+            )
+            .show()
+    }
     fun pickDate() {
         val selected =
             runCatching { java.time.LocalDate.parse(values[field.key]) }
@@ -84,7 +111,7 @@ fun Input(field: Field, values: MutableMap<String, String>) {
                 imeAction = if (field.key == "notes") ImeAction.Default else ImeAction.Done,
             ),
         keyboardActions = KeyboardActions(onDone = { focus.clearFocus() }),
-        readOnly = isDate,
+        readOnly = isDate || isTime,
         trailingIcon =
             if (isDate)
                 ({
@@ -92,10 +119,17 @@ fun Input(field: Field, values: MutableMap<String, String>) {
                         Icon(Icons.Outlined.CalendarMonth, "Choose date")
                     }
                 })
+            else if (isTime)
+                ({
+                    IconButton(onClick = { pickTime() }) {
+                        Icon(Icons.Outlined.Schedule, "Choose meal time")
+                    }
+                })
             else null,
-        singleLine = field.numeric || isDate,
+        singleLine = field.numeric || isDate || isTime,
         minLines = if (field.key == "notes") 3 else 1,
     )
+    if (field.numeric) stepSize(field.key)?.let { NumberButtons(field, values, it) }
 }
 
 @Composable
@@ -150,25 +184,14 @@ fun EditorDialog(
                 )
                 val nutrients = setOf("calories", "protein", "carbs", "fat", "fibre")
                 fields
-                    .filter { it.key !in nutrients && it.key != "notes" }
-                    .forEach { field ->
-                        Input(field, values)
-                        if (field.key == "category" || field.key == "kind")
-                            Row(
-                                Modifier.horizontalScroll(rememberScrollState()),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                (if (field.key == "category")
-                                        listOf("Brunch", "Dinner", "Snack", "Drink")
-                                    else listOf("Walking", "Strength", "Other"))
-                                    .forEach { option ->
-                                        SuggestionChip(
-                                            onClick = { values[field.key] = option },
-                                            label = { Text(option) },
-                                        )
-                                    }
-                            }
+                    .filter {
+                        it.key !in nutrients &&
+                            it.key != "notes" &&
+                            (it.key !in setOf("sets", "reps", "loadKg") ||
+                                values["kind"] == "Strength")
                     }
+                    .forEach { field -> Input(field, values) }
+
                 if (fields.any { it.key in nutrients }) {
                     TextButton(
                         onClick = { nutritionExpanded = !nutritionExpanded },
@@ -232,20 +255,48 @@ fun EditorDialog(
 }
 
 @Composable
-fun MealEditor(vm: MainViewModel, meal: Meal?, onSaved: (() -> Unit)? = null, close: () -> Unit) {
+fun MealEditor(
+    vm: MainViewModel,
+    meal: Meal?,
+    photoSource: String? = null,
+    onSaved: (() -> Unit)? = null,
+    close: () -> Unit,
+) {
     val m = remember { meal ?: Meal(name = "") }
     val fields =
         listOf(
             Field("name", "Food name", m.name),
+            Field("photo", "Meal photo", photoSource ?: m.photo),
             Field("category", "Category (Brunch, Dinner, Snack…)", m.category),
             Field("date", "Date · YYYY-MM-DD", m.date),
             Field("time", "Time · HH:mm", m.time),
-            Field("cost", "Cost · RM (0 = free)", m.cost.toString(), true),
-            Field("calories", "Calories · kcal (optional)", m.calories?.toString() ?: "", true),
-            Field("protein", "Protein · g (optional)", m.protein?.toString() ?: "", true),
-            Field("carbs", "Carbohydrates · g (optional)", m.carbs?.toString() ?: "", true),
-            Field("fat", "Fat · g (optional)", m.fat?.toString() ?: "", true),
-            Field("fibre", "Fibre · g (optional)", m.fibre?.toString() ?: "", true),
+            Field("cost", "Total meal cost · RM (0 = free)", m.cost.toString(), true),
+            Field("servings", "Servings", m.servings.toString(), true),
+            Field(
+                "calories",
+                "Calories per serving · kcal (optional)",
+                m.calories?.div(m.servings)?.toString() ?: "",
+                true,
+            ),
+            Field(
+                "protein",
+                "Protein · g (optional)",
+                m.protein?.div(m.servings)?.toString() ?: "",
+                true,
+            ),
+            Field(
+                "carbs",
+                "Carbohydrates · g (optional)",
+                m.carbs?.div(m.servings)?.toString() ?: "",
+                true,
+            ),
+            Field("fat", "Fat · g (optional)", m.fat?.div(m.servings)?.toString() ?: "", true),
+            Field(
+                "fibre",
+                "Fibre · g (optional)",
+                m.fibre?.div(m.servings)?.toString() ?: "",
+                true,
+            ),
             Field("notes", "Ingredients, portions & notes", m.notes),
         )
     EditorDialog(
@@ -254,26 +305,29 @@ fun MealEditor(vm: MainViewModel, meal: Meal?, onSaved: (() -> Unit)? = null, cl
         vm,
         close,
         save = { v ->
-            vm.repository.meal(
+            vm.saveMeal(
                 m.copy(
-                    name = v.s("name"),
-                    category = v.s("category"),
-                    date = v.s("date"),
-                    time = v.s("time"),
-                    cost = v.d("cost"),
-                    calories = v.optional("calories"),
-                    protein = v.optional("protein"),
-                    carbs = v.optional("carbs"),
-                    fat = v.optional("fat"),
-                    fibre = v.optional("fibre"),
-                    notes = v.s("notes"),
-                )
+                        name = v.s("name"),
+                        category = v.s("category"),
+                        date = v.s("date"),
+                        time = v.s("time"),
+                        cost = v.d("cost"),
+                        calories = v.optional("calories"),
+                        protein = v.optional("protein"),
+                        carbs = v.optional("carbs"),
+                        fat = v.optional("fat"),
+                        fibre = v.optional("fibre"),
+                        notes = v.s("notes"),
+                        servings = 1.0,
+                    )
+                    .withServings(v.d("servings")),
+                v.s("photo"),
             )
         },
         onSaved = onSaved ?: close,
         extra = {
             Text(
-                "Nutrition is optional. Photo estimates are approximate; confirm portions and adjust ingredients before saving.",
+                "Nutrition inputs describe one serving and scale to your serving quantity. Cost is for the entire meal. Nutrition is optional; photo estimates still need review.",
                 style = MaterialTheme.typography.bodySmall,
             )
         },
@@ -349,6 +403,19 @@ fun ProfileEditor(vm: MainViewModel, p: Profile, onboarding: Boolean, close: () 
                 Field("waterTarget", "Water target · ml", p.waterTarget.toString(), true),
                 Field("proteinTarget", "Protein target · g", p.proteinTarget.toString(), true),
                 Field("sleepTarget", "Sleep target · hours", p.sleepTarget.toString(), true),
+                Field(
+                    "calorieTarget",
+                    "Daily calorie target · kcal (optional)",
+                    p.calorieTarget?.toString() ?: "",
+                    true,
+                ),
+                Field(
+                    "carbTarget",
+                    "Carbohydrate target · g (optional)",
+                    p.carbTarget?.toString() ?: "",
+                    true,
+                ),
+                Field("fatTarget", "Fat target · g (optional)", p.fatTarget?.toString() ?: "", true),
             ),
             listOf(
                 Field("foods", "Food preferences", p.foodPreferences),
@@ -438,6 +505,9 @@ fun ProfileEditor(vm: MainViewModel, p: Profile, onboarding: Boolean, close: () 
                                 waterTarget = v.i("waterTarget"),
                                 proteinTarget = v.d("proteinTarget"),
                                 sleepTarget = v.d("sleepTarget"),
+                                calorieTarget = v.optional("calorieTarget"),
+                                carbTarget = v.optional("carbTarget"),
+                                fatTarget = v.optional("fatTarget"),
                             )
                         vm.repository.profile(profile, onboarding)
                     }
@@ -459,20 +529,26 @@ fun WorkoutEditor(vm: MainViewModel, workout: Workout?, close: () -> Unit) {
     EditorDialog(
         "Activity session",
         listOf(
-            Field("name", "Session name", w.name),
-            Field("kind", "Type · Walking, Strength, or Other", w.kind),
+            Field("kind", "Activity type", w.kind),
+            Field("workoutName", "Exercise", w.name),
             Field("date", "Date · YYYY-MM-DD", w.date),
             Field("minutes", "Duration · minutes", w.minutes.toString(), true),
+            Field("sets", "Sets (optional)", w.sets.toString(), true),
+            Field("reps", "Reps per set (optional)", w.reps.toString(), true),
+            Field("loadKg", "Load · kg (optional)", w.loadKg?.toString() ?: "", true),
         ),
         vm,
         close,
         save = {
             vm.repository.workout(
                 w.copy(
-                    name = it.s("name"),
+                    name = it.s("workoutName"),
                     kind = it.s("kind"),
                     date = it.s("date"),
                     minutes = it.i("minutes"),
+                    sets = if (it.s("kind") == "Strength") it.i("sets") else 0,
+                    reps = if (it.s("kind") == "Strength") it.i("reps") else 0,
+                    loadKg = if (it.s("kind") == "Strength") it.optional("loadKg") else null,
                 )
             )
         },

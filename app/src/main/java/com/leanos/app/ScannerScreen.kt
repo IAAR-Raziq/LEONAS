@@ -227,6 +227,7 @@ fun ScannerScreen(vm: MainViewModel, back: () -> Unit) {
             MealEditor(
                 vm,
                 a.meal(),
+                photoSource = uriText,
                 onSaved = {
                     editor = false
                     vm.analysis.value = null

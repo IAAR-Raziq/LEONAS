@@ -1,5 +1,6 @@
 package com.leanos.app
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import java.time.LocalDate
@@ -36,6 +37,9 @@ data class Profile(
     val proteinTarget: Double = 80.0,
     val sleepTarget: Double = 8.0,
     val startDate: String = today(),
+    val calorieTarget: Double? = null,
+    val carbTarget: Double? = null,
+    val fatTarget: Double? = null,
 ) {
     fun validate() {
         require(name.isNotBlank() && name.length <= 80) { "Enter a name (up to 80 characters)." }
@@ -63,6 +67,13 @@ data class Profile(
                 sleepTarget in 1.0..24.0
         ) {
             "Check daily targets."
+        }
+        require(
+            listOf(calorieTarget, carbTarget, fatTarget).all {
+                it == null || (it.isFinite() && it > 0 && it <= 20000)
+            }
+        ) {
+            "Optional nutrition targets must be positive, or left blank."
         }
         require(!LocalDate.parse(startDate).isAfter(LocalDate.now())) {
             "Start date cannot be in the future."
@@ -122,6 +133,8 @@ data class Meal(
     val fat: Double? = null,
     val fibre: Double? = null,
     val notes: String = "",
+    @ColumnInfo(defaultValue = "''") val photo: String = "",
+    @ColumnInfo(defaultValue = "1") val servings: Double = 1.0,
 ) {
     fun validate() {
         require(id.isNotBlank() && name.isNotBlank() && name.length <= 200) { "Enter a meal name." }
@@ -139,8 +152,27 @@ data class Meal(
         ) {
             "Nutrition must be positive, or left blank."
         }
+        require(servings.isFinite() && servings in 0.1..1000.0) {
+            "Servings must be between 0.1 and 1000."
+        }
+        require(photo.isEmpty() || isPhotoName(photo)) { "Invalid meal photo reference." }
         require(notes.length <= 10000 && category.isNotBlank() && category.length <= 80)
     }
+}
+
+fun Meal.withServings(count: Double): Meal {
+    require(count.isFinite() && count in 0.1..1000.0 && servings > 0) {
+        "Enter a valid serving quantity."
+    }
+    val factor = count / servings
+    return copy(
+        servings = count,
+        calories = calories?.times(factor),
+        protein = protein?.times(factor),
+        carbs = carbs?.times(factor),
+        fat = fat?.times(factor),
+        fibre = fibre?.times(factor),
+    )
 }
 
 @Serializable
@@ -269,18 +301,22 @@ object Calculations {
 
 @Serializable
 data class Backup(
-    val version: Int = 1,
+    val version: Int = 2,
     val profile: Profile?,
     val habits: List<Habit>,
     val meals: List<Meal>,
     val weights: List<Weight>,
     val expenses: List<Expense>,
     val workouts: List<Workout> = emptyList(),
+    val favoriteMealIds: Set<String> = emptySet(),
 ) {
     fun validate() {
-        require(version == 1) { "Unsupported backup version." }
+        require(version in 1..2) { "Unsupported backup version." }
         require(habits.size + meals.size + weights.size + expenses.size + workouts.size <= 100000) {
             "Backup too large."
+        }
+        require(favoriteMealIds.all { id -> meals.any { it.id == id } }) {
+            "A favourite refers to a missing meal."
         }
         profile?.validate()
         habits.forEach { it.validate() }
@@ -318,6 +354,9 @@ data class Workout(
     val name: String = "Walk",
     val kind: String = "Walking",
     val minutes: Int = 15,
+    @ColumnInfo(defaultValue = "0") val sets: Int = 0,
+    @ColumnInfo(defaultValue = "0") val reps: Int = 0,
+    val loadKg: Double? = null,
 ) {
     fun validate() {
         require(
@@ -328,6 +367,13 @@ data class Workout(
                 minutes in 1..1440
         ) {
             "Enter a name, Walking/Strength/Other type, and 1–1440 minutes."
+        }
+        require(
+            sets in 0..100 &&
+                reps in 0..1000 &&
+                (loadKg == null || (loadKg.isFinite() && loadKg in 0.0..1000.0))
+        ) {
+            "Check sets, reps and load."
         }
         require(!LocalDate.parse(date).isAfter(LocalDate.now())) {
             "Session date cannot be in the future."

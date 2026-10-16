@@ -33,7 +33,7 @@ fun ProfileScreen(data: Records, vm: MainViewModel) {
     var forget by remember { mutableStateOf(false) }
     val export =
         rememberLauncherForActivityResult(
-            ActivityResultContracts.CreateDocument("application/json")
+            ActivityResultContracts.CreateDocument("application/zip")
         ) {
             it?.let(vm::export)
         }
@@ -154,17 +154,26 @@ fun ProfileScreen(data: Records, vm: MainViewModel) {
         Panel {
             Text("Your data", style = MaterialTheme.typography.titleLarge)
             Text(
-                "Backups contain personal health records in readable JSON. Keep them private. Import replaces local records after validating the whole backup.",
+                "ZIP backups contain your health records and meal photos; legacy JSON backups can also be imported. Keep them private. Import replaces local records after validating the whole backup.",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             OutlinedButton(
-                onClick = { export.launch("leanos-${today()}.json") },
+                onClick = { export.launch("leanos-${today()}.zip") },
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text("Export backup")
             }
             OutlinedButton(
-                onClick = { import.launch(arrayOf("application/json", "text/plain")) },
+                onClick = {
+                    import.launch(
+                        arrayOf(
+                            "application/zip",
+                            "application/json",
+                            "text/plain",
+                            "application/octet-stream",
+                        )
+                    )
+                },
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text("Import backup")
@@ -178,7 +187,7 @@ fun ProfileScreen(data: Records, vm: MainViewModel) {
             }
         }
         Text(
-            "LEANOS 1.2\nYour body. Your progress. Your rules.",
+            "LEANOS 1.3\nYour body. Your progress. Your rules.",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodySmall,
         )
