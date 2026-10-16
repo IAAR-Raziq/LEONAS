@@ -5,17 +5,20 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -34,6 +37,12 @@ fun LeanosTheme(light: Boolean, content: @Composable () -> Unit) {
                 background = Color(0xFFF5F7F0),
                 surface = Color.White,
                 surfaceVariant = Color(0xFFE8EDE2),
+                primaryContainer = Color(0xFFDDF4BD),
+                onPrimaryContainer = Color(0xFF203800),
+                secondaryContainer = Color(0xFFD9EDE4),
+                onSecondaryContainer = Color(0xFF153D33),
+                outline = Color(0xFF738274),
+                surfaceContainer = Color(0xFFEDF1E8),
             )
         else
             darkColorScheme(
@@ -43,6 +52,12 @@ fun LeanosTheme(light: Boolean, content: @Composable () -> Unit) {
                 background = Color(0xFF0C1118),
                 surface = Color(0xFF151D27),
                 surfaceVariant = Color(0xFF202C38),
+                primaryContainer = Color(0xFF283C1E),
+                onPrimaryContainer = Color(0xFFD9FFB1),
+                secondaryContainer = Color(0xFF223C34),
+                onSecondaryContainer = Color(0xFF9AF3CD),
+                outline = Color(0xFF71817D),
+                surfaceContainer = Color(0xFF1A2430),
                 onSurface = Color(0xFFF1F4EE),
                 onSurfaceVariant = Color(0xFF9CABA9),
                 outlineVariant = Color(0xFF2A3742),
@@ -80,7 +95,15 @@ fun Panel(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> 
             ),
     ) {
         Column(
-            Modifier.padding(20.dp),
+            Modifier.background(
+                    Brush.verticalGradient(
+                        listOf(
+                            MaterialTheme.colorScheme.onSurface.copy(alpha = .018f),
+                            Color.Transparent,
+                        )
+                    )
+                )
+                .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             content = content,
         )
@@ -90,6 +113,7 @@ fun Panel(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> 
 @Composable
 fun Heading(title: String, subtitle: String? = null) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Label("LEANOS / YOUR DAILY COMPANION")
         Text(title, style = MaterialTheme.typography.headlineLarge)
         subtitle?.let {
             Text(
@@ -124,7 +148,12 @@ fun Ring(value: Float, title: String, detail: String, modifier: Modifier = Modif
     val fraction by animateFloatAsState(value.coerceIn(0f, 1f), label = "progress")
     val base = MaterialTheme.colorScheme.surfaceVariant
     val accent = MaterialTheme.colorScheme.primary
-    Box(modifier.size(130.dp), contentAlignment = Alignment.Center) {
+    Box(
+        modifier.size(112.dp).semantics {
+            progressBarRangeInfo = ProgressBarRangeInfo(value.coerceIn(0f, 1f), 0f..1f)
+        },
+        contentAlignment = Alignment.Center,
+    ) {
         Canvas(Modifier.fillMaxSize().padding(5.dp)) {
             drawArc(base, -90f, 360f, false, style = Stroke(10.dp.toPx(), cap = StrokeCap.Round))
             if (fraction > 0)
@@ -137,7 +166,7 @@ fun Ring(value: Float, title: String, detail: String, modifier: Modifier = Modif
                 )
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(title, fontSize = 25.sp, fontWeight = FontWeight.Bold)
+            Text(title, fontSize = 23.sp, fontWeight = FontWeight.Bold)
             Text(
                 detail,
                 style = MaterialTheme.typography.labelSmall,
@@ -149,11 +178,29 @@ fun Ring(value: Float, title: String, detail: String, modifier: Modifier = Modif
 
 @Composable
 fun Empty(text: String) {
-    Text(
-        text,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(vertical = 12.dp),
-    )
+    Column(
+        Modifier.fillMaxWidth().padding(vertical = 18.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Box(
+            Modifier.size(42.dp)
+                .background(MaterialTheme.colorScheme.secondary.copy(alpha = .12f), CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                "+",
+                color = MaterialTheme.colorScheme.secondary,
+                style = MaterialTheme.typography.titleLarge,
+            )
+        }
+        Text(
+            text,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        )
+    }
 }
 
 @Composable
@@ -203,6 +250,17 @@ fun Trend(points: List<Pair<String, Double>>, unit: String) {
                         lineTo(p.x, p.y)
                     }
                 }
+            val area =
+                Path().apply {
+                    addPath(path)
+                    lineTo(pos(points.lastIndex).x, size.height - pad)
+                    lineTo(pos(0).x, size.height - pad)
+                    close()
+                }
+            drawPath(
+                area,
+                Brush.verticalGradient(listOf(accent.copy(alpha = .18f), Color.Transparent)),
+            )
             drawPath(path, accent, style = Stroke(3.dp.toPx(), cap = StrokeCap.Round))
         }
         points.indices.forEach {

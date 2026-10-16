@@ -1,8 +1,10 @@
 package com.leanos.app
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
@@ -12,7 +14,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
@@ -44,131 +45,188 @@ fun HomeScreen(data: Records, vm: MainViewModel, navigate: (String) -> Unit) {
     val progress = Calculations.progress(p.startingWeight, current, p.goalWeight)
     val completion = h?.let { Calculations.completion(it, p, meals) } ?: 0f
     Page {
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column {
-                Label("LEANOS   /   ${LocalDate.now().dayOfWeek.name.lowercase()}")
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Label(
+                    LocalDate.now()
+                        .format(java.time.format.DateTimeFormatter.ofPattern("EEEE, d MMM"))
+                )
                 Text("Hey, ${p.name}.", style = MaterialTheme.typography.headlineLarge)
+                Text(
+                    "Let's make today a little better.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
-            Icon(
-                Icons.Outlined.Spa,
-                "Your journey",
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(34.dp),
-            )
+            FilledTonalIconButton(
+                onClick = { navigate("profile") },
+                modifier = Modifier.size(48.dp),
+            ) {
+                Icon(Icons.Outlined.Person, "Open your profile")
+            }
         }
-        Text("Small choices. Lasting change.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Panel {
+        HeroPanel {
             Label("YOUR JOURNEY")
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(20.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Column(Modifier.weight(1f)) {
                     Text(
-                        "${current.fmt()} kg",
-                        fontSize = 38.sp,
+                        current.fmt(),
+                        style = MaterialTheme.typography.displaySmall,
                         fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                     )
                     Text(
-                        "${(current-p.startingWeight).fmt()} kg from start",
-                        color = MaterialTheme.colorScheme.secondary,
-                    )
-                    Text(
-                        "Goal ${p.goalWeight.fmt()} kg",
+                        "kilograms · current weight",
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "${(current-p.startingWeight).fmt()} kg since you began",
+                        color = MaterialTheme.colorScheme.secondary,
+                    )
                 }
-                Ring(progress, "${(progress*100).toInt()}%", "to your goal")
+                Ring(progress, "${(progress*100).toInt()}%", "to ${p.goalWeight.fmt(0)} kg")
             }
             FilledTonalButton(onClick = { addWeight = true }, modifier = Modifier.fillMaxWidth()) {
                 Text("+ Log a weigh-in")
             }
         }
-        Panel {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Daily rhythm", style = MaterialTheme.typography.titleLarge)
-                Text("${(completion*100).toInt()}%", color = MaterialTheme.colorScheme.primary)
-            }
-            LinearProgressIndicator(progress = { completion }, modifier = Modifier.fillMaxWidth())
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Metric("Steps", "${h?.steps ?: 0} / ${p.stepTarget}")
-                Metric("Water", "${h?.water ?: 0} ml")
-            }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Metric("Sugary drinks", h?.sugary?.toString() ?: "Not logged")
-                Metric("Habit streak", "${Calculations.streak(data.habits,p,data.meals)} days")
-            }
-            TextButton(onClick = { navigate("track") }) { Text("Track your day →") }
-        }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Button(onClick = { navigate("scanner") }, modifier = Modifier.weight(1f)) {
-                Icon(Icons.Outlined.DocumentScanner, null)
+            Button(
+                onClick = { navigate("scanner") },
+                modifier = Modifier.weight(1f).heightIn(min = 52.dp),
+            ) {
+                Icon(Icons.Outlined.DocumentScanner, null, Modifier.size(20.dp))
                 Spacer(Modifier.width(6.dp))
                 Text("Scan food")
             }
-            OutlinedButton(onClick = { addMeal = true }, modifier = Modifier.weight(1f)) {
+            OutlinedButton(
+                onClick = { addMeal = true },
+                modifier = Modifier.weight(1f).heightIn(min = 52.dp),
+            ) {
                 Text("+ Add meal")
             }
         }
-        Panel {
-            val challengeDay =
-                (ChronoUnit.DAYS.between(LocalDate.parse(p.startDate), LocalDate.now()) + 1)
-                    .coerceAtLeast(1)
-            Label("30-DAY HABIT CHALLENGE")
-            Text(
-                if (challengeDay <= 30) "Day $challengeDay · Build your rhythm"
-                else "Your first 30 days",
-                style = MaterialTheme.typography.titleLarge,
+        SectionTitle("Today, at a glance", "Small habits add up. Log what you can.")
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            StatTile(
+                "Steps",
+                "${h?.steps ?: 0}",
+                "of ${p.stepTarget} today",
+                Icons.Outlined.DirectionsWalk,
+                Modifier.weight(1f),
             )
-            val complete =
-                data.habits.count {
-                    LocalDate.parse(it.date) in
-                        LocalDate.parse(p.startDate)..LocalDate.parse(p.startDate).plusDays(29) &&
-                        Calculations.completion(
-                            it,
-                            p,
-                            data.meals.filter { m -> m.date == it.date },
-                        ) >= 1f
-                }
-            Text("$complete of 30 days with all daily habits complete")
-            LinearProgressIndicator(
-                progress = { complete / 30f },
-                modifier = Modifier.fillMaxWidth(),
+            StatTile(
+                "Water",
+                "${h?.water ?: 0} ml",
+                "of ${p.waterTarget} ml",
+                Icons.Outlined.WaterDrop,
+                Modifier.weight(1f),
             )
-            Text(
-                "A missed day is a chance to begin again.",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            StatTile(
+                "Habit streak",
+                "${Calculations.streak(data.habits,p,data.meals)} days",
+                "All seven habits complete",
+                Icons.Outlined.LocalFireDepartment,
+                Modifier.weight(1f),
+            )
+            StatTile(
+                "Sugary drinks",
+                h?.sugary?.toString() ?: "—",
+                if (h == null) "Not logged yet" else "servings today",
+                Icons.Outlined.LocalCafe,
+                Modifier.weight(1f),
             )
         }
         Panel {
-            Text("Today's plate", style = MaterialTheme.typography.titleLarge)
-            if (meals.isEmpty()) Empty("No meals yet. Calories are always optional.")
-            else meals.forEach { Text("${it.time}  ${it.name}  ·  ${money(it.cost)}") }
-            Text("Known estimates: ${nutrition[0].fmt(0)} kcal · ${nutrition[1].fmt(0)} g protein")
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Daily rhythm", style = MaterialTheme.typography.titleMedium)
+                Text("${(completion*100).toInt()}%", color = MaterialTheme.colorScheme.primary)
+            }
+            LinearProgressIndicator(progress = { completion }, modifier = Modifier.fillMaxWidth())
+            TextButton(onClick = { navigate("track") }) { Text("Track your day →") }
+        }
+        Panel(Modifier.clickable { navigate("budget") }) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Outlined.AccountBalanceWallet,
+                    null,
+                    tint = MaterialTheme.colorScheme.secondary,
+                )
+                Spacer(Modifier.width(10.dp))
+                SectionTitle("Your food budget", "${budget.daysRemaining} days left this period")
+            }
+            Text(money(budget.remaining), style = MaterialTheme.typography.headlineLarge)
             Text(
-                "${meals.count { it.calories!=null }}/${meals.size} meals include calories; totals may be incomplete.",
+                "${money(budget.dailyAllowance)} available per day",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text("View budget →", color = MaterialTheme.colorScheme.primary)
+        }
+        Panel {
+            SectionTitle("Today's plate", "Nutrition is optional. Your meals still count.")
+            if (meals.isEmpty()) Empty("Nothing logged yet. Add your first meal when you're ready.")
+            meals.forEach {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Column(Modifier.weight(1f)) {
+                        Text(it.name, style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            it.time,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Text(money(it.cost))
+                }
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Text("${nutrition[0].fmt(0)} kcal estimated · ${nutrition[1].fmt(0)} g known protein")
+            Text(
+                "${meals.count {it.calories!=null}} of ${meals.size} meals include calories. Totals may be incomplete.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Panel(Modifier.clickable { navigate("budget") }) {
-            Label("FOOD BUDGET")
-            Text("${money(budget.remaining)} left", style = MaterialTheme.typography.headlineMedium)
-            Text("${money(budget.dailyAllowance)} / day · ${budget.daysRemaining} days left")
-            Text("View budget →", color = MaterialTheme.colorScheme.primary)
-        }
         Panel {
-            Text("Weight · last 7 days", style = MaterialTheme.typography.titleLarge)
+            SectionTitle("Your weekly trend", "Your saved weigh-ins from the last seven days")
             Trend(
                 data.weights
                     .filter { it.date >= LocalDate.now().minusDays(6).toString() }
                     .sortedBy { it.date }
                     .map { it.date to it.kg },
                 "kg",
+            )
+        }
+        val challengeDay =
+            (ChronoUnit.DAYS.between(LocalDate.parse(p.startDate), LocalDate.now()) + 1)
+                .coerceAtLeast(1)
+        val complete =
+            data.habits.count {
+                LocalDate.parse(it.date) in
+                    LocalDate.parse(p.startDate)..LocalDate.parse(p.startDate).plusDays(29) &&
+                    Calculations.completion(it, p, data.meals.filter { m -> m.date == it.date }) >=
+                        1f
+            }
+        Panel {
+            Label("30-DAY HABIT CHALLENGE")
+            Text(
+                if (challengeDay <= 30) "Day $challengeDay · Keep showing up"
+                else "Your first 30 days",
+                style = MaterialTheme.typography.titleLarge,
+            )
+            Text("$complete of 30 days complete", color = MaterialTheme.colorScheme.secondary)
+            LinearProgressIndicator(
+                progress = { complete / 30f },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Text(
+                "A missed day never erases your progress.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
@@ -186,6 +244,43 @@ fun TrackScreen(data: Records, vm: MainViewModel) {
     var deleteSession by remember { mutableStateOf<Workout?>(null) }
     Page {
         Heading("Your daily rhythm", "Consistency over perfection.")
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            IconButton(
+                onClick = {
+                    selected = LocalDate.parse(selected).minusDays(1).toString()
+                    date = selected
+                }
+            ) {
+                Icon(Icons.Outlined.ChevronLeft, "Previous day")
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    if (selected == today()) "Today"
+                    else
+                        LocalDate.parse(selected)
+                            .format(java.time.format.DateTimeFormatter.ofPattern("EEE, d MMM")),
+                    style = MaterialTheme.typography.titleLarge,
+                )
+                Text(
+                    selected,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            IconButton(
+                onClick = {
+                    selected = LocalDate.parse(selected).plusDays(1).toString()
+                    date = selected
+                },
+                enabled = selected < today(),
+            ) {
+                Icon(Icons.Outlined.ChevronRight, "Next day")
+            }
+        }
         OutlinedTextField(
             date,
             { date = it },
@@ -246,7 +341,55 @@ fun TrackScreen(data: Records, vm: MainViewModel) {
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
-            fields.forEach { Input(it, values) }
+            Panel {
+                SectionTitle("Move your body", "Set a comfortable pace")
+                fields
+                    .filter { it.key in listOf("steps", "walking", "exercise") }
+                    .forEach { Input(it, values) }
+            }
+            Panel {
+                SectionTitle("Fuel & recovery", "Your daily essentials")
+                fields
+                    .filter { it.key in listOf("water", "sugary", "sleep") }
+                    .forEach { Input(it, values) }
+                Row(
+                    Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    listOf(250, 500).forEach { ml ->
+                        AssistChip(
+                            onClick = {
+                                values["water"] =
+                                    ((values["water"]?.toIntOrNull() ?: 0) + ml).toString()
+                            },
+                            label = { Text("+ $ml ml") },
+                        )
+                    }
+                }
+                Text(
+                    "Water changes are saved with your day.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Panel {
+                SectionTitle("How did you feel?")
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    (1..5).forEach { level ->
+                        FilterChip(
+                            selected = values["energy"] == level.toString(),
+                            onClick = { values["energy"] = level.toString() },
+                            label = { Text(level.toString()) },
+                        )
+                    }
+                }
+                Text(
+                    "1 = low energy · 5 = full of energy",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Input(fields.first { it.key == "notes" }, values)
+            }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Switch(rest, { rest = it })
                 Spacer(Modifier.width(12.dp))
@@ -364,6 +507,17 @@ fun MealsScreen(data: Records, vm: MainViewModel) {
     var delete by remember { mutableStateOf<Meal?>(null) }
     val week = data.meals.filter { it.date >= LocalDate.now().minusDays(6).toString() }
     val n = Calculations.nutrition(week)
+    var search by rememberSaveable { mutableStateOf("") }
+    var period by rememberSaveable { mutableStateOf("All") }
+    val visible =
+        data.meals.filter { m ->
+            (search.isBlank() || m.name.contains(search, true) || m.notes.contains(search, true)) &&
+                when (period) {
+                    "Today" -> m.date == today()
+                    "7 days" -> m.date >= LocalDate.now().minusDays(6).toString()
+                    else -> true
+                }
+        }
     Page {
         Heading("Good food. Less friction.", "Brunch, dinner, and everything between.")
         Button(
@@ -392,8 +546,28 @@ fun MealsScreen(data: Records, vm: MainViewModel) {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        if (data.meals.isEmpty()) Empty("Your meals will appear here after you log them.")
-        data.meals.forEach { m ->
+        SectionTitle("Meal journal", "Find something you've logged")
+        OutlinedTextField(
+            search,
+            { search = it },
+            label = { Text("Search meals") },
+            leadingIcon = { Icon(Icons.Outlined.Search, null) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(18.dp),
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("Today", "7 days", "All").forEach { p ->
+                FilterChip(period == p, { period = p }, label = { Text(p) })
+            }
+        }
+        if (visible.isEmpty())
+            Empty(
+                if (data.meals.isEmpty())
+                    "Your first meal starts your journal. No calorie counting needed."
+                else "No meals match these filters."
+            )
+        visible.forEach { m ->
             Panel {
                 Label("${m.date} · ${m.time} · ${m.category}")
                 Text(m.name, style = MaterialTheme.typography.titleLarge)
@@ -441,20 +615,25 @@ fun ProgressScreen(data: Records, vm: MainViewModel) {
     val p = data.profile!!
     Page {
         Heading("The bigger picture", "Progress is a trend, never a deadline.")
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Metric("Current", "${data.currentWeight().fmt()} kg", Modifier.weight(1f))
-            Metric(
-                "Change",
-                "${(data.currentWeight()-p.startingWeight).fmt()} kg",
-                Modifier.weight(1f),
+        HeroPanel {
+            Label("YOUR LONG-TERM VIEW")
+            Text("${data.currentWeight().fmt()} kg", style = MaterialTheme.typography.displaySmall)
+            Text(
+                "${(data.currentWeight()-p.startingWeight).fmt()} kg from your starting weight",
+                color = MaterialTheme.colorScheme.secondary,
+            )
+            LinearProgressIndicator(
+                progress = {
+                    Calculations.progress(p.startingWeight, data.currentWeight(), p.goalWeight)
+                },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Text(
+                "Starting ${p.startingWeight.fmt()} kg  →  Goal ${p.goalWeight.fmt()} kg",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        LinearProgressIndicator(
-            progress = {
-                Calculations.progress(p.startingWeight, data.currentWeight(), p.goalWeight)
-            },
-            modifier = Modifier.fillMaxWidth(),
-        )
         Button(
             onClick = {
                 weight = null
@@ -535,8 +714,8 @@ fun BudgetScreen(data: Records, vm: MainViewModel, back: () -> Unit) {
     Page {
         TextButton(onClick = back) { Text("← Home") }
         Heading("Make every ringgit count.", "30-day food budget · ${b.start} to ${b.end}")
-        Panel {
-            Label("REMAINING")
+        HeroPanel {
+            Label("AVAILABLE THIS PERIOD")
             Text(money(b.remaining), style = MaterialTheme.typography.displaySmall)
             LinearProgressIndicator(
                 progress = {

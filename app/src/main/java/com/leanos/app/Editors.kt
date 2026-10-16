@@ -1,14 +1,21 @@
 package com.leanos.app
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.mapSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -45,6 +52,26 @@ fun Map<String, String>.optional(key: String) = if (s(key).isBlank()) null else 
 
 @Composable
 fun Input(field: Field, values: MutableMap<String, String>) {
+    val context = LocalContext.current
+    val focus = LocalFocusManager.current
+    val isDate = field.key == "date"
+    fun pickDate() {
+        val selected =
+            runCatching { java.time.LocalDate.parse(values[field.key]) }
+                .getOrDefault(java.time.LocalDate.now())
+        android.app
+            .DatePickerDialog(
+                context,
+                { _, year, month, day ->
+                    values[field.key] = java.time.LocalDate.of(year, month + 1, day).toString()
+                },
+                selected.year,
+                selected.monthValue - 1,
+                selected.dayOfMonth,
+            )
+            .apply { datePicker.maxDate = System.currentTimeMillis() }
+            .show()
+    }
     OutlinedTextField(
         value = values[field.key] ?: "",
         onValueChange = { if (it.length <= 10000) values[field.key] = it },
@@ -53,9 +80,21 @@ fun Input(field: Field, values: MutableMap<String, String>) {
         shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
         keyboardOptions =
             KeyboardOptions(
-                keyboardType = if (field.numeric) KeyboardType.Decimal else KeyboardType.Text
+                keyboardType = if (field.numeric) KeyboardType.Decimal else KeyboardType.Text,
+                imeAction = if (field.key == "notes") ImeAction.Default else ImeAction.Done,
             ),
-        singleLine = field.numeric,
+        keyboardActions = KeyboardActions(onDone = { focus.clearFocus() }),
+        readOnly = isDate,
+        trailingIcon =
+            if (isDate)
+                ({
+                    IconButton(onClick = { pickDate() }) {
+                        Icon(Icons.Outlined.CalendarMonth, "Choose date")
+                    }
+                })
+            else null,
+        singleLine = field.numeric || isDate,
+        minLines = if (field.key == "notes") 3 else 1,
     )
 }
 
@@ -71,9 +110,23 @@ fun EditorDialog(
 ) {
     val values = fieldValues(fields)
     val busy by vm.busy.collectAsStateWithLifecycle()
-    val message by vm.message.collectAsStateWithLifecycle()
+    var inlineError by remember { mutableStateOf<String?>(null) }
+    var discard by remember { mutableStateOf(false) }
+    var nutritionExpanded by rememberSaveable {
+        mutableStateOf(
+            fields.any {
+                it.key in listOf("calories", "protein", "carbs", "fat", "fibre") &&
+                    it.initial.isNotBlank()
+            }
+        )
+    }
+    fun requestClose() {
+        if (!busy) {
+            if (fields.any { values[it.key] != it.initial }) discard = true else onDismiss()
+        }
+    }
     Dialog(
-        onDismissRequest = { if (!busy) onDismiss() },
+        onDismissRequest = { requestClose() },
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -81,19 +134,76 @@ fun EditorDialog(
                 Modifier.safeDrawingPadding().padding(20.dp).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Text(title, style = MaterialTheme.typography.headlineMedium)
-                fields.forEach { Input(it, values) }
+                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Label("MAKE IT COUNT")
+                        Text(title, style = MaterialTheme.typography.headlineMedium)
+                    }
+                    IconButton(onClick = { requestClose() }, enabled = !busy) {
+                        Icon(Icons.Outlined.Close, "Close editor")
+                    }
+                }
+                Text(
+                    "Only saved entries update your progress.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                val nutrients = setOf("calories", "protein", "carbs", "fat", "fibre")
+                fields
+                    .filter { it.key !in nutrients && it.key != "notes" }
+                    .forEach { field ->
+                        Input(field, values)
+                        if (field.key == "category" || field.key == "kind")
+                            Row(
+                                Modifier.horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                (if (field.key == "category")
+                                        listOf("Brunch", "Dinner", "Snack", "Drink")
+                                    else listOf("Walking", "Strength", "Other"))
+                                    .forEach { option ->
+                                        SuggestionChip(
+                                            onClick = { values[field.key] = option },
+                                            label = { Text(option) },
+                                        )
+                                    }
+                            }
+                    }
+                if (fields.any { it.key in nutrients }) {
+                    TextButton(
+                        onClick = { nutritionExpanded = !nutritionExpanded },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(
+                            if (nutritionExpanded) "− Hide optional nutrition"
+                            else "+ Add nutrition (optional)"
+                        )
+                    }
+                    if (nutritionExpanded)
+                        fields.filter { it.key in nutrients }.forEach { Input(it, values) }
+                }
+                fields.filter { it.key == "notes" }.forEach { Input(it, values) }
                 extra()
-                message?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                inlineError?.let { Notice("Check this entry", it) }
                 Button(
-                    onClick = { vm.run(done = onSaved) { save(values.toMap()) } },
+                    onClick = {
+                        inlineError = null
+                        vm.run(done = onSaved) {
+                            try {
+                                save(values.toMap())
+                            } catch (e: Exception) {
+                                inlineError = e.message ?: "Check your entry and try again."
+                                throw e
+                            }
+                        }
+                    },
                     enabled = !busy,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text("Save record")
                 }
                 TextButton(
-                    onClick = onDismiss,
+                    onClick = { requestClose() },
                     enabled = !busy,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
@@ -102,6 +212,23 @@ fun EditorDialog(
             }
         }
     }
+    if (discard)
+        AlertDialog(
+            onDismissRequest = { discard = false },
+            title = { Text("Discard unsaved changes?") },
+            text = { Text("This entry hasn't been saved yet.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        discard = false
+                        onDismiss()
+                    }
+                ) {
+                    Text("Discard")
+                }
+            },
+            dismissButton = { TextButton(onClick = { discard = false }) { Text("Keep editing") } },
+        )
 }
 
 @Composable
@@ -254,7 +381,20 @@ fun ProfileEditor(vm: MainViewModel, p: Profile, onboarding: Boolean, close: () 
             listOf("About you", "Your daily rhythm", "Food & budget")[step],
             style = MaterialTheme.typography.titleLarge,
         )
-        groups[step].forEach { Input(it, values) }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("About you", "Daily rhythm", "Food & budget").forEachIndexed { index, label ->
+                FilterChip(
+                    selected = step == index,
+                    onClick = { step = index },
+                    label = { Text("${index+1}", style = MaterialTheme.typography.labelLarge) },
+                    leadingIcon =
+                        if (index < step)
+                            ({ Icon(Icons.Outlined.Check, null, Modifier.size(16.dp)) })
+                        else null,
+                )
+            }
+        }
+        Panel { groups[step].forEach { Input(it, values) } }
         if (step == 0)
             Text(
                 "Adult personal tracking, not medical advice. Choose a gradual goal and get professional advice for health concerns.",

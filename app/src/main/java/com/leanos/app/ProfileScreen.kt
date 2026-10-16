@@ -3,10 +3,14 @@ package com.leanos.app
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -38,7 +42,40 @@ fun ProfileScreen(data: Records, vm: MainViewModel) {
             restoreUri = it
         }
     Page {
-        Heading("Made for ${p.name}.", "Offline first. Yours by design.")
+        Heading("Your space", "Your goals. Your preferences. Your data.")
+        HeroPanel {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                Box(
+                    Modifier.size(56.dp)
+                        .background(
+                            MaterialTheme.colorScheme.primary.copy(alpha = .14f),
+                            CircleShape,
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        p.name.take(1).uppercase(),
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+                Column {
+                    Text(p.name, style = MaterialTheme.typography.headlineSmall)
+                    Text(
+                        "Personal journey · ${p.country}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            Text(
+                "Your body. Your progress. Your rules.",
+                color = MaterialTheme.colorScheme.secondary,
+            )
+        }
         Panel {
             Label("PERSONAL PROFILE")
             Text(
@@ -66,8 +103,11 @@ fun ProfileScreen(data: Records, vm: MainViewModel) {
                 style = MaterialTheme.typography.bodySmall,
             )
         }
-        Panel {
-            Text("AI food scanner", style = MaterialTheme.typography.titleLarge)
+        Disclosure(
+            "AI food scanner",
+            if (configured && savedEndpoint.isNotBlank()) "Connected · manage scanner access"
+            else "Optional · connect when you’re ready",
+        ) {
             Text(
                 "Optional internet feature. Only the photo you submit is sent to your backend and Google Gemini. Estimates need your review. No Gemini key is stored in this app.",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -94,7 +134,7 @@ fun ProfileScreen(data: Records, vm: MainViewModel) {
             )
             Text(
                 if (configured) "Client token secured with Android Keystore."
-                else "Deploy backend/ first; see README for secure token setup.",
+                else "Connect your private scanner service to enable photo analysis.",
                 style = MaterialTheme.typography.bodySmall,
             )
             Button(
@@ -130,7 +170,7 @@ fun ProfileScreen(data: Records, vm: MainViewModel) {
                 Text("Import backup")
             }
             Text(
-                "Demo data: none. All charts and totals use your records.",
+                "Your records stay on this device unless you export them.",
                 style = MaterialTheme.typography.bodySmall,
             )
             TextButton(onClick = { erase = true }) {
@@ -138,7 +178,7 @@ fun ProfileScreen(data: Records, vm: MainViewModel) {
             }
         }
         Text(
-            "LEANOS 1.1\nYour body. Your progress. Your rules.",
+            "LEANOS 1.2\nYour body. Your progress. Your rules.",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodySmall,
         )

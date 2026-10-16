@@ -10,6 +10,20 @@ Open [LEANOS-debug.apk](downloads/LEANOS-debug.apk) on GitHub and use **Download
 
 APK integrity: [SHA256SUMS](downloads/SHA256SUMS).
 
+## Version 1.2 · a more cohesive daily experience
+
+[View the Home redesign](docs/images/home-dark.png) (native Robolectric rendering with a test profile).
+
+- Home: gradient journey card, compact steps/water/streak/drink tiles, prominent food actions and clearer budget/nutrition summaries.
+- Track: previous/next day controls, grouped movement/recovery entries, water quick-adds and a five-level energy selector. Changes still require Save.
+- Meals: searchable journal with Today / 7 days / All filters. Editors offer category shortcuts, date pickers and expandable optional nutrition.
+- Progress and Budget: stronger summary cards, clearer hierarchy and softly filled charts using only saved records.
+- Profile: personal identity card, theme settings and a collapsed optional scanner-connection section.
+- Onboarding and editors: more consistent cards, step controls, keyboard dismissal, persistent validation messages and confirmation before discarding an edited record.
+- Scanner: clearer choose/analyze/review steps, rounded photo preview and improved guidance.
+
+The floating glass navigation remains. Dark and light theme controls now consistently use the app's lime/mint palette. No data schema or signing-key change is needed; install this update over your existing app to retain records.
+
 ## Version 1.1 · floating glass navigation
 
 The bottom navigation now floats above the system gesture area in a rounded, translucent capsule. Layered highlights, a thin glass rim and soft shadow adapt to dark/light themes. Animated lime selection, persistent labels, accessible tab semantics, generous touch targets and a centered maximum width improve navigation on phones and tablets. Tapping the current tab preserves the screen; photo scanning hides the bar for focused review. Content and snackbars stay clear of the navigation area. This is a glass-style surface rather than a device-dependent backdrop blur.

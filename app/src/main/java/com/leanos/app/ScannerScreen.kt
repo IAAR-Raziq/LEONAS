@@ -6,10 +6,14 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -77,10 +81,19 @@ fun ScannerScreen(vm: MainViewModel, back: () -> Unit) {
     Page {
         TextButton(onClick = back, enabled = !busy) { Text("← Home") }
         Heading("What's on your plate?", "Malaysian favourites. Thoughtful estimates.")
-        Text(
+        Notice(
+            "You’re in control",
             "An internet connection and configured backend are required. Photos are sent only when you tap Analyze. Hidden oil, sauces, sugar and portion sizes make estimates uncertain.",
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            listOf("1 · Choose", "2 · Analyze", "3 · Review").forEach {
+                Text(
+                    it,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.secondary,
+                )
+            }
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             OutlinedButton(
                 enabled = !busy,
@@ -120,7 +133,7 @@ fun ScannerScreen(vm: MainViewModel, back: () -> Unit) {
             Image(
                 it.asImageBitmap(),
                 contentDescription = "Selected food image",
-                modifier = Modifier.fillMaxWidth().height(250.dp),
+                modifier = Modifier.fillMaxWidth().height(250.dp).clip(RoundedCornerShape(24.dp)),
                 contentScale = ContentScale.Fit,
             )
         }
@@ -149,7 +162,17 @@ fun ScannerScreen(vm: MainViewModel, back: () -> Unit) {
             }
         }
         if (uriText == null)
-            Panel {
+            HeroPanel {
+                Icon(
+                    Icons.Outlined.PhotoCamera,
+                    null,
+                    tint = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.size(40.dp),
+                )
+                SectionTitle(
+                    "A clearer photo, a better estimate",
+                    "Use natural light and include the whole plate.",
+                )
                 Empty(
                     "Photograph food in good light, include the whole plate, and avoid faces or personal details. For packaged foods, capture a clear nutrition label."
                 )

@@ -4,7 +4,7 @@ The current checkout built successfully in this cloud machine with Temurin JDK 1
 
 ## Completed
 
-- `assembleDebug`: passed. Native Android APK created at `app/build/outputs/apk/debug/app-debug.apk` (package `com.leanos.app`, version 1.1.0 (code 2), min SDK 26, target SDK 36).
+- `assembleDebug`: passed. Native Android APK created at `app/build/outputs/apk/debug/app-debug.apk` (package `com.leanos.app`, version 1.2.0 (code 3), min SDK 26, target SDK 36).
 - `testDebugUnitTest`: **12 passed, 0 failed, 0 skipped**: 7 calculation/validation tests, 4 Room persistence/CRUD/backup/activity tests, 1 Compose application flow test.
 - Compose flow ran with Robolectric API 35 and native graphics: three-step onboarding, meal entry/save, Meals and Progress navigation, Home return, Activity recreation with the profile retained. Database tests ran on Robolectric API 28, including close/reopen persistence and an invalid import leaving existing data intact.
 - `lintDebug`: passed with no errors. Remaining warnings are dependency update notices and Kotlin convenience API suggestions; no lint assertions were disabled or baselined.
@@ -13,11 +13,15 @@ The current checkout built successfully in this cloud machine with Temurin JDK 1
 - Backend `npm test`: **6 passed, 0 failed, 0 skipped**. Real local HTTP requests exercise bearer authentication, valid/invalid image decoding, mode validation and rate limiting. Gemini transport is mocked to test structured requests, invalid/truncated results, quota and network errors.
 - Backend `npm audit --omit=dev --audit-level=high`: **0 known vulnerabilities** at validation time, after updating flagged upload/image/rate-limit dependencies. Backend tests ran on Node 24.19.0; Docker is configured for Node 22.
 
-APK SHA-256: `1a6b3970356c2bbf137bf43fcc16c34c1918286d899509c5934ccd6dab6d6695`
+APK SHA-256: `f82773dbf07e0368ef0aef77024bed9880f892db63bab0b4a9ad336de27091f3`
 
 ## Version 1.1 navigation update
 
 Rebuilt after introducing the floating glass-style navigation. All 12 Android tests passed again, including the native-graphics Compose onboarding, meal save, tab navigation and Activity recreation flow. `assembleDebug` and `lintDebug` passed. APK signature and 16 KB ZIP alignment passed. The signing certificate matches the previous APK, application ID is unchanged, and the database remains schema version 1, supporting an in-place update that retains records. The scanner hides the navigation bar and Budget highlights Home. Backend source was unchanged; the previously recorded backend results still apply.
+
+## Version 1.2 experience redesign
+
+`assembleDebug`, `testDebugUnitTest` and `lintDebug` passed after the full UI update: **12 tests passed, none failed or skipped**. The expanded native-graphics Compose flow verifies onboarding, collapsed/expanded optional nutrition, meal saving, journal searching including the empty state, water quick-add and day saving, tab navigation and Activity recreation. The final UI flow used API 35 at 393 × 852 dp; a compact-screen run also passed during development. The test captures a native-rendered Home image with test-only profile data for visual review at `docs/images/home-dark.png`. This is a Robolectric rendering, not a physical-device screenshot. Signature verification and 16 KB ZIP alignment passed; the certificate matches version 1.1, and the database schema is unchanged. Backend source and its prior test results are unchanged. Lint passes with warnings, including dependency-update and convenience-API notices.
 
 ## Remaining deployment and device checks
 
