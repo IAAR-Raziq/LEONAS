@@ -64,21 +64,14 @@ fun LeanosApp(vm: MainViewModel) {
         containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbar) },
         bottomBar = {
-            if (records?.profile != null)
-                NavigationBar(containerColor = MaterialTheme.colorScheme.background) {
-                    tabs.forEach { tab ->
-                        NavigationBarItem(
-                            selected = current == tab.route,
-                            onClick = {
-                                nav.navigate(tab.route) {
-                                    popUpTo(nav.graph.startDestinationId) { saveState = true }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            },
-                            icon = { Icon(tab.icon, contentDescription = tab.name) },
-                            label = { Text(tab.name) },
-                        )
+            if (records?.profile != null && current != "scanner")
+                FloatingNavigation(tabs, current) { tab ->
+                    if (current != tab.route) {
+                        nav.navigate(tab.route) {
+                            popUpTo(nav.graph.startDestinationId) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
                     }
                 }
         },

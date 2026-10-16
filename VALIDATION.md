@@ -4,7 +4,7 @@ The current checkout built successfully in this cloud machine with Temurin JDK 1
 
 ## Completed
 
-- `assembleDebug`: passed. Native Android APK created at `app/build/outputs/apk/debug/app-debug.apk` (package `com.leanos.app`, version 1.0.0, min SDK 26, target SDK 36).
+- `assembleDebug`: passed. Native Android APK created at `app/build/outputs/apk/debug/app-debug.apk` (package `com.leanos.app`, version 1.1.0 (code 2), min SDK 26, target SDK 36).
 - `testDebugUnitTest`: **12 passed, 0 failed, 0 skipped**: 7 calculation/validation tests, 4 Room persistence/CRUD/backup/activity tests, 1 Compose application flow test.
 - Compose flow ran with Robolectric API 35 and native graphics: three-step onboarding, meal entry/save, Meals and Progress navigation, Home return, Activity recreation with the profile retained. Database tests ran on Robolectric API 28, including close/reopen persistence and an invalid import leaving existing data intact.
 - `lintDebug`: passed with no errors. Remaining warnings are dependency update notices and Kotlin convenience API suggestions; no lint assertions were disabled or baselined.
@@ -13,7 +13,11 @@ The current checkout built successfully in this cloud machine with Temurin JDK 1
 - Backend `npm test`: **6 passed, 0 failed, 0 skipped**. Real local HTTP requests exercise bearer authentication, valid/invalid image decoding, mode validation and rate limiting. Gemini transport is mocked to test structured requests, invalid/truncated results, quota and network errors.
 - Backend `npm audit --omit=dev --audit-level=high`: **0 known vulnerabilities** at validation time, after updating flagged upload/image/rate-limit dependencies. Backend tests ran on Node 24.19.0; Docker is configured for Node 22.
 
-APK SHA-256: `e4f3d9c8965dd3c4f878ed418952fb04b05092ca37cd01f26d64bd5726bd5540`
+APK SHA-256: `1a6b3970356c2bbf137bf43fcc16c34c1918286d899509c5934ccd6dab6d6695`
+
+## Version 1.1 navigation update
+
+Rebuilt after introducing the floating glass-style navigation. All 12 Android tests passed again, including the native-graphics Compose onboarding, meal save, tab navigation and Activity recreation flow. `assembleDebug` and `lintDebug` passed. APK signature and 16 KB ZIP alignment passed. The signing certificate matches the previous APK, application ID is unchanged, and the database remains schema version 1, supporting an in-place update that retains records. The scanner hides the navigation bar and Budget highlights Home. Backend source was unchanged; the previously recorded backend results still apply.
 
 ## Remaining deployment and device checks
 

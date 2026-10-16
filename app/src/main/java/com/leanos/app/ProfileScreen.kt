@@ -138,7 +138,7 @@ fun ProfileScreen(data: Records, vm: MainViewModel) {
             }
         }
         Text(
-            "LEANOS 1.0\nYour body. Your progress. Your rules.",
+            "LEANOS 1.1\nYour body. Your progress. Your rules.",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodySmall,
         )

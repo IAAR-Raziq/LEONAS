@@ -10,6 +10,12 @@ Open [LEANOS-debug.apk](downloads/LEANOS-debug.apk) on GitHub and use **Download
 
 APK integrity: [SHA256SUMS](downloads/SHA256SUMS).
 
+## Version 1.1 · floating glass navigation
+
+The bottom navigation now floats above the system gesture area in a rounded, translucent capsule. Layered highlights, a thin glass rim and soft shadow adapt to dark/light themes. Animated lime selection, persistent labels, accessible tab semantics, generous touch targets and a centered maximum width improve navigation on phones and tablets. Tapping the current tab preserves the screen; photo scanning hides the bar for focused review. Content and snackbars stay clear of the navigation area. This is a glass-style surface rather than a device-dependent backdrop blur.
+
+Install the newer APK over version 1.0 to retain your data; the app ID, signing key and Room schema remain unchanged.
+
 ## Build and install
 
 Open this directory in Android Studio, select a JDK 17 installation, and install Android SDK Platform 36 and SDK Build Tools 35.0.0 (AGP's default). Android Studio creates ignored `local.properties`; for CLI builds set `ANDROID_HOME` to your SDK or put `sdk.dir=/your/android-sdk` in that file. The Gradle wrapper is pinned to 8.13 with distribution SHA-256 verification.
