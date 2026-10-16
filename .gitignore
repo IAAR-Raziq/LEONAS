@@ -1,0 +1,11 @@
+.gradle/
+.kotlin/
+**/build/
+local.properties
+*.iml
+.idea/
+backend/node_modules/
+backend/.env
+*.keystore
+
+backend/.client-token
